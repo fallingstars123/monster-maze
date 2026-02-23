@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Monster Maze</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; }
+    .row { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+    .panel { display: grid; gap: 8px; margin-top: 12px; }
+    textarea, input { font: inherit; padding: 8px; }
+    button { font: inherit; padding: 10px 14px; cursor: pointer; }
+    .board {
+      font-size: 22px;
+      line-height: 1.35;
+      white-space: pre;
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      background: #111;
+      color: #f5f5f5;
+      max-width: 100%;
+      overflow-x: auto;
+    }
+    .log {
+      white-space: pre-wrap;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      background: #fafafa;
+      min-height: 70px;
+    }
+    .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; padding: 2px 6px; border: 1px solid #ccc; border-radius: 6px; background: #fff; }
+    .controls { display: flex; gap: 8px; flex-wrap: wrap; }
+  </style>
+</head>
+<body>
+  <h1>Monster Maze 😎😈🚩</h1>
+
+  <div class="panel">
+    <div class="row">
+      <label>Grid (rows,cols): <input id="size" value="6,6" /></label>
+      <label>Start (row,col): <input id="start" value="5,0" /></label>
+      <label>Goal (row,col): <input id="goal" value="0,5" /></label>
+    </div>
+    <div class="row">
+      <label>Monsters (one per line row,col):</label>
+    </div>
+    <textarea id="monsters" rows="4">2,2
+4,4</textarea>
+
+    <div class="row controls">
+      <button id="btnStart">Start / Restart</button>
+      <span>Move: <span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span> (keyboard works)</span>
+    </div>
+
+    <div class="row controls">
+      <button data-move="W">W</button>
+      <button data-move="A">A</button>
+      <button data-move="S">S</button>
+      <button data-move="D">D</button>
+    </div>
+
+    <div id="board" class="board"></div>
+    <div id="log" class="log"></div>
+  </div>
+
+<script>
+  const EMOJI = {
+    player: "😎",
+    monster: "😈",
+    goal: "🚩",
+    empty: "⬜",
+    multi: "💀"
+  };
+
+  let state = null;
+
+  function parsePair(str) {
+    const parts = str.split(",").map(s => s.trim());
+    if (parts.length !== 2) throw new Error("Bad pair: " + str);
+    const a = Number(parts[0]), b = Number(parts[1]);
+    if (!Number.isInteger(a) || !Number.isInteger(b)) throw new Error("Not ints: " + str);
+    return [a, b];
+  }
+
+  function clampInBounds([r,c], rows, cols) {
+    return (r >= 0 && r < rows && c >= 0 && c < cols);
+  }
+
+  function startGame() {
+    const [rows, cols] = parsePair(document.getElementById("size").value);
+    const p = parsePair(document.getElementById("start").value);
+    const g = parsePair(document.getElementById("goal").value);
+
+    const monsterLines = document.getElementById("monsters").value
+      .split("\n").map(s => s.trim()).filter(Boolean);
+
+    const monsters = monsterLines.map(parsePair);
+
+    // Basic sanity checks (friendly, not strict)
+    if (rows <= 0 || cols <= 0) throw new Error("Grid must be positive.");
+    if (!clampInBounds(p, rows, cols)) throw new Error("Start out of bounds.");
+    if (!clampInBounds(g, rows, cols)) throw new Error("Goal out of bounds.");
+    for (const m of monsters) if (!clampInBounds(m, rows, cols)) throw new Error("Monster out of bounds: " + m.join(","));
+
+    state = {
+      rows, cols,
+      p: { r: p[0], c: p[1] },
+      g: { r: g[0], c: g[1] },
+      monsters: monsters.map(([r,c]) => ({ r, c })),
+      ended: false,
+      msg: "Game started."
+    };
+
+    render();
+  }
+
+  function movePlayer(dir) {
+    if (!state || state.ended) return;
+    const { rows, cols, p } = state;
+
+    let nr = p.r, nc = p.c;
+    dir = dir.toUpperCase();
+
+    if (dir === "W") nr--;
+    else if (dir === "S") nr++;
+    else if (dir === "A") nc--;
+    else if (dir === "D") nc++;
+    else { state.msg = "Invalid input."; return; }
+
+    // bounds check
+    if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) {
+      state.msg = "Invalid move! You hit a wall, but the monsters keep moving...";
+      // player stays
+    } else {
+      p.r = nr; p.c = nc;
+      state.msg = "Moved " + dir + ".";
+    }
+
+    // monsters move up by one (row - 1), loop to bottom
+    for (const m of state.monsters) {
+      m.r -= 1;
+      if (m.r < 0) m.r = rows - 1;
+    }
+
+    // collision check AFTER monsters move (matches your assignment order)
+    for (const m of state.monsters) {
+      if (m.r === p.r && m.c === p.c) {
+        state.ended = true;
+        state.msg = "A monster caught you! Game Over.";
+        render();
+        return;
+      }
+    }
+
+    // win check
+    if (p.r === state.g.r && p.c === state.g.c) {
+      state.ended = true;
+      state.msg = "Congratulations! You reached the goal!";
+    }
+
+    render();
+  }
+
+  function render() {
+    const boardEl = document.getElementById("board");
+    const logEl = document.getElementById("log");
+
+    if (!state) {
+      boardEl.textContent = "Click Start.";
+      logEl.textContent = "";
+      return;
+    }
+
+    const { rows, cols, p, g, monsters } = state;
+
+    // build a board string without storing a board as state
+    let out = "";
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (p.r === r && p.c === c) { out += EMOJI.player + " "; continue; }
+
+        // count monsters at this cell
+        let count = 0;
+        for (const m of monsters) if (m.r === r && m.c === c) count++;
+
+        if (count >= 2) out += EMOJI.multi + " ";
+        else if (count === 1) out += EMOJI.monster + " ";
+        else if (g.r === r && g.c === c) out += EMOJI.goal + " ";
+        else out += EMOJI.empty + " ";
+      }
+      out += "\n";
+    }
+
+    boardEl.textContent = out;
+    logEl.textContent = state.msg + (state.ended ? "\n\nThank you for playing!" : "");
+  }
+
+  // UI wiring
+  document.getElementById("btnStart").addEventListener("click", () => {
+    try { startGame(); }
+    catch (e) { alert(e.message); }
+  });
+
+  document.querySelectorAll("button[data-move]").forEach(btn => {
+    btn.addEventListener("click", () => movePlayer(btn.dataset.move));
+  });
+
+  window.addEventListener("keydown", (e) => {
+    const k = e.key.toUpperCase();
+    if (["W","A","S","D"].includes(k)) {
+      e.preventDefault();
+      movePlayer(k);
+    }
+  });
+
+  // auto start once
+  try { startGame(); } catch {}
+</script>
+</body>
+</html>
