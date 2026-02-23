@@ -100,8 +100,8 @@
       <label>Goal (row,col): <input id="goal" value="0,5" /></label>
       <label>Seed: <input id="seed" value="CS 180 - HW 06" /></label>
       <label style="display:flex; gap:8px; align-items:center;">
-        <input id="manualMonsters" type="checkbox" />
-        Manual monsters
+        <input id="manualMap" type="checkbox" />
+        Manual Map
         </label>
         <button id="btnNewSeed" type="button">🎲 New Seed</button>
     </div>
@@ -201,7 +201,7 @@
 
   function startGame() {
     const seedValue = Number(document.getElementById("seed").value) || 1;
-    const manual = document.getElementById("manualMonsters")?.checked; // 你现在的checkbox
+    const manual = document.getElementById("manualMap")?.checked; // 你现在的checkbox
 
     let rows, cols, p, g, monsters;
 
@@ -342,7 +342,7 @@
     document.getElementById("seed").value = String(newSeed);
 
     // 默认用 seed（如果你希望按一次就回到 seed 模式）
-    document.getElementById("manualMonsters").checked = false;
+    document.getElementById("manualMap").checked = false;
 
     // 直接重开局
     try { startGame(); }
