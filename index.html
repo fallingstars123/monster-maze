@@ -318,17 +318,38 @@
     try { startGame(); }
     catch (e) { alert(e.message); }
     });
-  document.querySelectorAll("button[data-move]").forEach(btn => {
-    btn.addEventListener("click", () => movePlayer(btn.dataset.move));
-  });
+    document.querySelectorAll("button[data-move]").forEach(btn => {
+        btn.addEventListener("click", () => movePlayer(btn.dataset.move));
+    });
 
-  window.addEventListener("keydown", (e) => {
-    const k = e.key.toUpperCase();
-    if (["W","A","S","D"].includes(k)) {
-      e.preventDefault();
-      movePlayer(k);
+    window.addEventListener("keydown", (e) => {
+    const key = e.key;          // "w", "ArrowUp", etc.
+    const code = e.code;        // "KeyW", "ArrowUp", etc.
+
+    const map = {
+        // WASD by key
+        "w": "W", "a": "A", "s": "S", "d": "D",
+        "W": "W", "A": "A", "S": "S", "D": "D",
+
+        // Arrow keys by key
+        "ArrowUp": "W",
+        "ArrowLeft": "A",
+        "ArrowDown": "S",
+        "ArrowRight": "D",
+
+        // WASD by code (more robust on some layouts)
+        "KeyW": "W",
+        "KeyA": "A",
+        "KeyS": "S",
+        "KeyD": "D",
+    };
+
+    const dir = map[key] || map[code];
+    if (dir) {
+        e.preventDefault(); // 防止方向键滚动页面
+        movePlayer(dir);
     }
-  });
+    });
 
   // auto start once
   try { startGame(); } catch {}
