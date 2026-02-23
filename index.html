@@ -147,6 +147,7 @@
     if (!Number.isInteger(a) || !Number.isInteger(b)) throw new Error("Not ints: " + str);
     return [a, b];
   }
+  
 
   function clampInBounds([r,c], rows, cols) {
     return (r >= 0 && r < rows && c >= 0 && c < cols);
@@ -161,48 +162,77 @@
     }
   }
 
-  function startGame() {
-    const [rows, cols] = parsePair(document.getElementById("size").value);
-    const p = parsePair(document.getElementById("start").value);
-    const g = parsePair(document.getElementById("goal").value);
-
-    const seedValue = Number(document.getElementById("seed").value) || 1;
+  function generateLevelFromSeed(seedValue) {
     const rng = mulberry32(seedValue);
+    // 1) map size: 3..10
+    const rows = Math.floor(rng() * 8) + 3; // 3-10
+    const cols = Math.floor(rng() * 8) + 3; // 3-10
 
-    const useManual = document.getElementById("manualMonsters").checked;
+    // 2) start & goal (not same)
+    const start = { r: Math.floor(rng() * rows), c: Math.floor(rng() * cols) };
+    let goal;
+    do {
+      goal = { r: Math.floor(rng() * rows), c: Math.floor(rng() * cols) };
+    } while (goal.r === start.r && goal.c === start.c);
 
-    const monsterLines = document.getElementById("monsters").value
-    .split("\n").map(s => s.trim()).filter(Boolean);
+    // 3) monster count (area-based, reasonable)
+    const cells = rows * cols;
+    let minM = Math.max(1, Math.floor(cells / 14));
+    let maxM = Math.max(minM, Math.floor(cells / 6));
+    maxM = Math.min(maxM, cells - 3); // leave space
+    const mCount = Math.floor(rng() * (maxM - minM + 1)) + minM;
 
-    let monsters = [];
-
-    function sameCell(a, b) { return a[0] === b[0] && a[1] === b[1]; }
-
-    if (useManual) {
-    // 手动模式：用文本框
-    if (monsterLines.length === 0) {
-        throw new Error("Manual monsters is on, but no monster coordinates were provided.");
+    // 4) monster positions (unique, not on start/goal)
+    const used = new Set([`${start.r},${start.c}`, `${goal.r},${goal.c}`]);
+    const monsters = [];
+    let guard = 0;
+    while (monsters.length < mCount && guard < 5000) {
+      guard++;
+      const r = Math.floor(rng() * rows);
+      const c = Math.floor(rng() * cols);
+      const key = `${r},${c}`;
+      if (used.has(key)) continue;
+      used.add(key);
+      monsters.push({ r, c });
     }
-    monsters = monsterLines.map(parsePair);
+
+    return { rows, cols, start, goal, monsters };
+  }
+
+  function startGame() {
+    const seedValue = Number(document.getElementById("seed").value) || 1;
+    const manual = document.getElementById("manualMonsters")?.checked; // 你现在的checkbox
+
+    let rows, cols, p, g, monsters;
+
+    if (!manual) {
+      // ✅ 默认：seed 控制整张地图
+      const lvl = generateLevelFromSeed(seedValue);
+
+      rows = lvl.rows;
+      cols = lvl.cols;
+      p = [lvl.start.r, lvl.start.c];
+      g = [lvl.goal.r, lvl.goal.c];
+      monsters = lvl.monsters.map(m => [m.r, m.c]);
+
+      // 可选：把生成结果回填到输入框（方便你“看到关卡长啥样”）
+      document.getElementById("size").value = `${rows},${cols}`;
+      document.getElementById("start").value = `${p[0]},${p[1]}`;
+      document.getElementById("goal").value = `${g[0]},${g[1]}`;
+      document.getElementById("monsters").value = monsters.map(x => `${x[0]},${x[1]}`).join("\n");
+
     } else {
-    // 默认：用 seed 自动生成
-    const monsterCount = monsterLines.length > 0 ? monsterLines.length : 3; 
-    // 解释：你如果在文本框写了几行，就把“几行”当作数量（但位置仍随机）
-    // 如果文本框是空，就默认 3 只
+      // ✅ 手动：按输入框
+      [rows, cols] = parsePair(document.getElementById("size").value);
+      p = parsePair(document.getElementById("start").value);
+      g = parsePair(document.getElementById("goal").value);
 
-    for (let i = 0; i < monsterCount; i++) {
-        let cand;
-        let guard = 0;
-        do {
-        cand = [Math.floor(rng() * rows), Math.floor(rng() * cols)];
-        guard++;
-        if (guard > 999) break; // 防死循环
-        } while (sameCell(cand, p) || sameCell(cand, g));
-        monsters.push(cand);
-    }
+      const monsterLines = document.getElementById("monsters").value
+        .split("\n").map(s => s.trim()).filter(Boolean);
+      monsters = monsterLines.map(parsePair);
     }
 
-    // Basic sanity checks (friendly, not strict)
+    // checks
     if (rows <= 0 || cols <= 0) throw new Error("Grid must be positive.");
     if (!clampInBounds(p, rows, cols)) throw new Error("Start out of bounds.");
     if (!clampInBounds(g, rows, cols)) throw new Error("Goal out of bounds.");
@@ -214,7 +244,7 @@
       g: { r: g[0], c: g[1] },
       monsters: monsters.map(([r,c]) => ({ r, c })),
       ended: false,
-      msg: "Game started."
+      msg: manual ? "Manual level started." : `Seed level started (seed=${seedValue}).`
     };
 
     render();
