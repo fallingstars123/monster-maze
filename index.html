@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>Monster Maze</title>
   <style>
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; }
@@ -32,6 +32,62 @@
     }
     .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; padding: 2px 6px; border: 1px solid #ccc; border-radius: 6px; background: #fff; }
     .controls { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    .mobile-controls{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  margin-top:12px;
+  align-items:flex-start;
+}
+
+.dpad{
+  display:grid;
+  grid-template-columns: 72px 72px 72px;
+  grid-template-rows: 72px 72px 72px;
+  gap:10px;
+  align-items:center;
+  justify-items:center;
+  touch-action: manipulation; /* 更适合手机 */
+}
+
+.dpad-btn{
+  width:72px;
+  height:72px;
+  border-radius:16px;
+  border:1px solid #ccc;
+  background:#fff;
+  font-size:20px;
+  font-weight:700;
+}
+
+.dpad-btn:active{
+  transform: scale(0.98);
+}
+
+.dpad-btn.up{ grid-column:2; grid-row:1; }
+.dpad-btn.left{ grid-column:1; grid-row:2; }
+.dpad-center{ grid-column:2; grid-row:2; width:72px; height:72px; }
+.dpad-btn.right{ grid-column:3; grid-row:2; }
+.dpad-btn.down{ grid-column:2; grid-row:3; }
+
+.hint{ opacity:0.8; }
+
+@media (max-width: 520px){
+  .dpad{
+    grid-template-columns: 84px 84px 84px;
+    grid-template-rows: 84px 84px 84px;
+  }
+  .dpad-btn{
+    width:84px;
+    height:84px;
+    font-size:22px;
+  }
+  .dpad-center{
+    width:84px;
+    height:84px;
+  }
+}
   </style>
 </head>
 <body>
@@ -49,21 +105,23 @@
     <textarea id="monsters" rows="4">2,2
 4,4</textarea>
 
-    <div class="row controls">
-      <button id="btnStart">Start / Restart</button>
-      <span>Move: <span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span> (keyboard works)</span>
-    </div>
-
-    <div class="row controls">
-      <button data-move="W">W</button>
-      <button data-move="A">A</button>
-      <button data-move="S">S</button>
-      <button data-move="D">D</button>
-    </div>
-
     <div id="board" class="board"></div>
+
+    <div class="mobile-controls">
+    <button id="btnStart">Start / Restart</button>
+
+    <div class="dpad" aria-label="Movement controls">
+        <button class="dpad-btn up" data-move="W">W</button>
+        <button class="dpad-btn left" data-move="A">A</button>
+        <button class="dpad-btn down" data-move="S">S</button>
+        <button class="dpad-btn right" data-move="D">D</button>
+        <div class="dpad-center"></div>
+    </div>
+
+    <div class="hint">Keyboard: <span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span></div>
+    </div>
+
     <div id="log" class="log"></div>
-  </div>
 
 <script>
   const EMOJI = {
